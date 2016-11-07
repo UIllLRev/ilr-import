@@ -12,7 +12,7 @@ Text Domain: ilr-import
 Domain Path: /languages
 */
 
-function ilr_import_posts_page() {
+function ilr_import_docx_metabox() {
     //must check that the user has the required capability 
     if (!current_user_can('edit_posts')) {
         wp_die( __('You do not have sufficient permissions to access this page.') );
@@ -39,9 +39,31 @@ function ilr_import_posts_page() {
     echo '</div>';
 }
 
-function ilr_import_admin_metabox() {
-    add_meta_box('import-docx', 'Import DOCX', 'ilr_import_posts_page', 'post');
+function ilr_import_register_metabox() {
+    add_meta_box('import-docx', 'Import DOCX', 'ilr_import_docx_metabox', 'post');
 }
 
-add_action('add_meta_boxes', 'ilr_import_admin_metabox');
+function ilr_import_new_print_issue() {
+    if ($_POST) {
+        wp_insert_category(0, 'category', "volume-{$year}-issue-{$issue}", '', "Vol. {$year} No. {$issue}", 36);
+    } else {
+        echo '<div class="wrap">';
+        echo '<h1>New Print Issue</h1>';
+        echo '<form enctype="multipart/form-data" method="POST">';
+        echo '<label for="year">Year</label>';
+        echo '<input type="text" id="year"/>';
+        echo '<label for="issue">Issue</label>';
+        echo '<input type="text" id="issue"/>';
+        echo '</form>';
+        echo '</div>';
+    }
+}
+
+function ilr_import_add_submenu() {
+    add_posts_page('Create a new print issue', 'New Print Issue', 'manage_categories', 'ilr-import-new-print-issue', 
+        'ilr_import_new_print_issue');
+}
+
+add_action('add_meta_boxes', 'ilr_import_register_metabox');
+add_action('admin_menu', 'ilr_import_add_submenu');
 ?>
