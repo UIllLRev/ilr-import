@@ -20,23 +20,11 @@ function ilr_import_docx_metabox() {
 
     wp_enqueue_script("jszip", "/wp-content/plugins/ilr-import/js/jszip.min.js");
     wp_enqueue_script("docx.js", "/wp-content/plugins/ilr-import/js/docx.js");
+    wp_enqueue_script("ilr-import-metabox.js", "/wp-content/plugins/ilr-import/js/ilr-import-metabox.js");
 
-    echo '<div class="wrap">';
-    echo '<h1>Upload Word File</h1>';
-    echo '<form enctype="multipart/form-data" method="POST">';
-    echo '<input type="file" id="import_word_file">';
-    echo '<script>';
-    echo 'function handleFileSelect(evt) {';
-    echo '  var files = evt.target.files;';
-    echo '  var reader = new FileReader();';
-    echo '  docx(files[0]).then(function (r) {';
-    //echo '      document.write(r.styles.outerHTML);';
-    echo '      r.mainDocument.forEach(function (q) { document.getElementById("content").value += q.outerHTML; }); });';
-    echo '}';
-    echo 'document.getElementById("import_word_file").addEventListener("change", handleFileSelect, false);';
-    echo '</script>';
-    echo '</form>';
-    echo '</div>';
+    echo '<label class="screen-reader-text" for="import_docx_file">Import DOCX File</label>';
+    echo '<input type="file" id="import_docx_file">';
+    echo '<p>Selecting a DOCX file will replace the content of this post with the contents of the DOCX file converted to HTML.</p>';
 }
 
 function ilr_import_register_metabox() {

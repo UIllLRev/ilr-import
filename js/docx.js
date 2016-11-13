@@ -4,6 +4,8 @@
 // https://raw.github.com/stephen-hardy/docx.js/master/LICENSE.txt
 //----------------------------------------------------------
 
+// Made to actually work and substantially improved by Matt Loar.
+
 function convertContent(input) { 'use strict'; // Convert HTML to WordprocessingML, and vice versa
     function newXMLnode(name, text) {
         var el = doc.createElement('w:' + name);
@@ -20,6 +22,66 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
         if (str.indexOf('rgb') < 0) { return str; }
         var values = /rgb\((\d+), (\d+), (\d+)\)/.exec(str), red = +values[1], green = +values[2], blue = +values[3];
         return (blue | (green << 8) | (red << 16)).toString(16);
+    }
+    function processRunStyle(node, val) {
+        var inNode, i, styleAttrNode;
+        for (i = 0; inNode = node.childNodes[i]; i++) {
+            if (node.getElementsByTagName('smallCaps').length) { val = '<span style="font-variant: small-caps">' + val + '</span>'; }
+            if (node.getElementsByTagName('b').length) { val = '<b>' + val + '</b>'; }
+            if (node.getElementsByTagName('i').length) { val = '<i>' + val + '</i>'; }
+            if (node.getElementsByTagName('u').length) { val = '<u>' + val + '</u>'; }
+            if (node.getElementsByTagName('strike').length) { val = '<s>' + val + '</s>'; }
+            if (styleAttrNode = node.getElementsByTagName('vertAlign')[0]) {
+                if (styleAttrNode.getAttribute('w:val') === 'subscript') { val = '<sub>' + val + '</sub>'; }
+                if (styleAttrNode.getAttribute('w:val') === 'superscript') { val = '<sup>' + val + '</sup>'; }
+            }
+            if (styleAttrNode = node.getElementsByTagName('sz')[0]) { val = '<span style="font-size:' + (styleAttrNode.getAttribute('w:val') / 2) + 'pt">' + val + '</span>'; }
+            if (styleAttrNode = node.getElementsByTagName('highlight')[0]) { val = '<span style="background-color:' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
+            if (styleAttrNode = node.getElementsByTagName('color')[0]) { val = '<span style="color:#' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
+            if (styleAttrNode = node.getElementsByTagName('blip')[0]) {
+                id = styleAttrNode.getAttribute('r:embed');
+                tempNode = toXML(input.files['word/_rels/document.xml.rels'].data);
+                k = tempNode.childNodes.length;
+                while (k--) {
+                    if (tempNode.childNodes[k].getAttribute('Id') === id) {
+                        val = '<img src="data:image/png;base64,' + JSZipBase64.encode(input.files['word/' + tempNode.childNodes[k].getAttribute('Target')].data) + '">';
+                        break;
+                    }
+                }
+            }
+        }
+        return val;
+    }
+    function processRun(node, outNode, fnNode) {
+        var val = '', inNode, i;
+        for (i = 0; inNode = node.childNodes[i]; i++) {
+            if (inNode.tagName == 't') { val += inNode.textContent; }
+            if (inNode.tagName == 'tab') { val += ' '; }
+            if (inNode.tagName == 'footnoteRef') {
+                outNode.id = 'note-' + fnNode.getAttribute('w:id');
+                val += fnNode.getAttribute('w:id');
+            }
+            if (inNode.tagName == 'footnoteReference') {
+                if (inNode.getAttribute('w:customMarkFollows') == 1) {
+                    val += '<sup><a href="#note-' + inNode.getAttribute('w:id') + '">';
+                    inNode = node.childNodes[++i];
+                    if (inNode.tagName == 't') {
+                        val += inNode.textContent;
+                    } else {
+                        console.warn('customMarkFollows not followed by t');
+                        val += '*';
+                    }
+                    val += '</a></sup>';
+                } else {
+                    val += '<sup><a href="#note-' + inNode.getAttribute('w:id') + '">'
+                        + inNode.getAttribute('w:id') + '</a></sup>';
+                }
+            }
+        }
+        if (inNode = node.getElementsByTagName('rPr')[0]) {
+            val = processRunStyle(inNode, val);
+        }
+        return val;
     }
     function toXML(str) { return new DOMParser().parseFromString(str.replace(/<[a-zA-Z]*?:/g, '<').replace(/<\/[a-zA-Z]*?:/g, '</'), 'text/xml').firstChild; }
     if (input.files) { // input is file object
@@ -63,32 +125,7 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                         if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
                     }
                     if (inNodeChild.nodeName === 'r') {
-                        val = inNodeChild.textContent;
-                        if (footnoteNode = inNodeChild.getElementsByTagName('footnoteReference')[0]) { val = '<sup><a href="#note-' + footnoteNode.getAttribute('w:id') + '">' + footnoteNode.getAttribute('w:id') + '</a></sup>'; }
-                        if (inNodeChild.getElementsByTagName('smallCaps').length) { val = '<span style="font-variant: small-caps">' + val + '</span>'; }
-                        if (inNodeChild.getElementsByTagName('b').length) { val = '<b>' + val + '</b>'; }
-                        if (inNodeChild.getElementsByTagName('i').length) { val = '<i>' + val + '</i>'; }
-                        if (inNodeChild.getElementsByTagName('u').length) { val = '<u>' + val + '</u>'; }
-                        if (inNodeChild.getElementsByTagName('strike').length) { val = '<s>' + val + '</s>'; }
-                        if (styleAttrNode = inNodeChild.getElementsByTagName('vertAlign')[0]) {
-                            if (styleAttrNode.getAttribute('w:val') === 'subscript') { val = '<sub>' + val + '</sub>'; }
-                            if (styleAttrNode.getAttribute('w:val') === 'superscript') { val = '<sup>' + val + '</sup>'; }
-                        }
-                        if (styleAttrNode = inNodeChild.getElementsByTagName('sz')[0]) { val = '<span style="font-size:' + (styleAttrNode.getAttribute('w:val') / 2) + 'pt">' + val + '</span>'; }
-                        if (styleAttrNode = inNodeChild.getElementsByTagName('highlight')[0]) { val = '<span style="background-color:' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
-                        if (styleAttrNode = inNodeChild.getElementsByTagName('color')[0]) { val = '<span style="color:#' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
-                        if (styleAttrNode = inNodeChild.getElementsByTagName('blip')[0]) {
-                            id = styleAttrNode.getAttribute('r:embed');
-                            tempNode = toXML(input.files['word/_rels/document.xml.rels'].data);
-                            k = tempNode.childNodes.length;
-                            while (k--) {
-                                if (tempNode.childNodes[k].getAttribute('Id') === id) {
-                                    val = '<img src="data:image/png;base64,' + JSZipBase64.encode(input.files['word/' + tempNode.childNodes[k].getAttribute('Target')].data) + '">';
-                                    break;
-                                }
-                            }
-                        }
-                        tempStr += val;
+                        tempStr += processRun(inNodeChild, outNode, null);
                     }
                     outNode.innerHTML = tempStr;
                 }
@@ -96,7 +133,30 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             output = output.childNodes;
             return output;
         });
-        var footnotes = null; //input.files['word/footnotes.xml'].async("string").then(function (data) {
+        var footnotes = input.files['word/footnotes.xml'].async("string").then(function (data) {
+            var output, inputDoc, h, i, j, k, id, doc, fnNode, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val;
+            inputDoc = toXML(data);
+            output = newHTMLnode('DIV');
+            for (h = 0; fnNode = inputDoc.childNodes[h]; h++) {
+                for (i = 0; inNode = fnNode.childNodes[i]; i++) {
+                    j = inNode.childNodes.length;
+                    outNode = output.appendChild(newHTMLnode('P'));
+                    tempStr = '';
+                    for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
+                        if (inNodeChild.nodeName === 'pPr') {
+                            if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) { outNode.style.textAlign = styleAttrNode.getAttribute('w:val'); }
+                            if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
+                        }
+                        if (inNodeChild.nodeName === 'r') {
+                            tempStr += processRun(inNodeChild, outNode, fnNode);
+                        }
+                        outNode.innerHTML = tempStr;
+                    }
+                }
+            }
+            output = output.childNodes;
+            return output;
+        });
         return Promise.all([styles, mainDocument, footnotes]).then(function (results) {
             var output = {
                styles: results[0],
@@ -109,9 +169,8 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
 }
 
 function docx(file) { 'use strict'; // v1.0.1
-    var result, zip = new JSZip(), zipTime, processTime, docProps, word, content;
+    var zip = new JSZip();
 
-    zipTime = Date.now();
     return zip.loadAsync(file).then(function (zip) {
         return convertContent(zip);
     });
