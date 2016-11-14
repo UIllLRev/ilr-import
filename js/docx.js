@@ -173,12 +173,15 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             // Fixup footnotes
             var references = output.mainDocument.getElementsByClassName("fn-reference");
             var refNode, footnote;
-            for (var i = 0; (refNode = references[i]) && (footnote = output.footnotes.childNodes[i]); i++) {
-                var noteId = refNode.getAttribute('href').substr(1);
-                if (noteId == footnote.id) {
-                    var ref;
-                    if (ref = footnote.getElementsByClassName('fn-ref')[0]) {
-                        ref.textContent = refNode.textContent;
+            for (var i = 0; refNode = references[i]; i++) {
+                for (var j = i; footnote = output.footnotes.childNodes[j]; j++) {
+                    var noteId = refNode.getAttribute('href').substr(1);
+                    if (noteId == footnote.id) {
+                        var ref;
+                        if (ref = footnote.getElementsByClassName('fn-ref')[0]) {
+                            ref.textContent = refNode.textContent;
+                        }
+                        break;
                     }
                 }
             }
