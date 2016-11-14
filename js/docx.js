@@ -25,28 +25,26 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
     }
     function processRunStyle(node, val) {
         var inNode, i, styleAttrNode;
-        for (i = 0; inNode = node.childNodes[i]; i++) {
-            if (node.getElementsByTagName('smallCaps').length) { val = '<span style="font-variant: small-caps">' + val + '</span>'; }
-            if (node.getElementsByTagName('b').length) { val = '<b>' + val + '</b>'; }
-            if (node.getElementsByTagName('i').length) { val = '<i>' + val + '</i>'; }
-            if (node.getElementsByTagName('u').length) { val = '<u>' + val + '</u>'; }
-            if (node.getElementsByTagName('strike').length) { val = '<s>' + val + '</s>'; }
-            if (styleAttrNode = node.getElementsByTagName('vertAlign')[0]) {
-                if (styleAttrNode.getAttribute('w:val') === 'subscript') { val = '<sub>' + val + '</sub>'; }
-                if (styleAttrNode.getAttribute('w:val') === 'superscript') { val = '<sup>' + val + '</sup>'; }
-            }
-            if (styleAttrNode = node.getElementsByTagName('sz')[0]) { val = '<span style="font-size:' + (styleAttrNode.getAttribute('w:val') / 2) + 'pt">' + val + '</span>'; }
-            if (styleAttrNode = node.getElementsByTagName('highlight')[0]) { val = '<span style="background-color:' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
-            if (styleAttrNode = node.getElementsByTagName('color')[0]) { val = '<span style="color:#' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
-            if (styleAttrNode = node.getElementsByTagName('blip')[0]) {
-                id = styleAttrNode.getAttribute('r:embed');
-                tempNode = toXML(input.files['word/_rels/document.xml.rels'].data);
-                k = tempNode.childNodes.length;
-                while (k--) {
-                    if (tempNode.childNodes[k].getAttribute('Id') === id) {
-                        val = '<img src="data:image/png;base64,' + JSZipBase64.encode(input.files['word/' + tempNode.childNodes[k].getAttribute('Target')].data) + '">';
-                        break;
-                    }
+        if (node.getElementsByTagName('smallCaps').length) { val = '<span style="font-variant: small-caps">' + val + '</span>'; }
+        if (node.getElementsByTagName('b').length) { val = '<b>' + val + '</b>'; }
+        if (node.getElementsByTagName('i').length) { val = '<i>' + val + '</i>'; }
+        if (node.getElementsByTagName('u').length) { val = '<u>' + val + '</u>'; }
+        if (node.getElementsByTagName('strike').length) { val = '<s>' + val + '</s>'; }
+        if (styleAttrNode = node.getElementsByTagName('vertAlign')[0]) {
+            if (styleAttrNode.getAttribute('w:val') === 'subscript') { val = '<sub>' + val + '</sub>'; }
+            if (styleAttrNode.getAttribute('w:val') === 'superscript') { val = '<sup>' + val + '</sup>'; }
+        }
+        if (styleAttrNode = node.getElementsByTagName('sz')[0]) { val = '<span style="font-size:' + (styleAttrNode.getAttribute('w:val') / 2) + 'pt">' + val + '</span>'; }
+        if (styleAttrNode = node.getElementsByTagName('highlight')[0]) { val = '<span style="background-color:' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
+        if (styleAttrNode = node.getElementsByTagName('color')[0]) { val = '<span style="color:#' + styleAttrNode.getAttribute('w:val') + '">' + val + '</span>'; }
+        if (styleAttrNode = node.getElementsByTagName('blip')[0]) {
+            id = styleAttrNode.getAttribute('r:embed');
+            tempNode = toXML(input.files['word/_rels/document.xml.rels'].data);
+            k = tempNode.childNodes.length;
+            while (k--) {
+                if (tempNode.childNodes[k].getAttribute('Id') === id) {
+                    val = '<img src="data:image/png;base64,' + JSZipBase64.encode(input.files['word/' + tempNode.childNodes[k].getAttribute('Target')].data) + '">';
+                    break;
                 }
             }
         }
