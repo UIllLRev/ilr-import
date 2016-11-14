@@ -52,18 +52,20 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
         }
         return val;
     }
-    function processRun(node, outNode, fnNode) {
-        var val = '', inNode, i;
+    function processRun(node, footnoteId) {
+        var val = '', inNode, i, fnId;
         for (i = 0; inNode = node.childNodes[i]; i++) {
             if (inNode.tagName == 't') { val += inNode.textContent; }
             if (inNode.tagName == 'tab') { val += ' '; }
             if (inNode.tagName == 'footnoteRef') {
-                outNode.id = 'note-' + fnNode.getAttribute('w:id');
-                val += fnNode.getAttribute('w:id');
+                // In this case, footnoteId is just a scalar value
+                val += '<span class="fn-ref">' + footnoteId + '</span>';
             }
             if (inNode.tagName == 'footnoteReference') {
+                fnId = inNode.getAttribute('w:id');
                 if (inNode.getAttribute('w:customMarkFollows') == 1) {
-                    val += '<sup><a href="#note-' + inNode.getAttribute('w:id') + '">';
+                    fnId = inNode.getAttribute('w:id');
+                    val += '<sup><a class="fn-reference" href="#note-' + fnId + '">';
                     inNode = node.childNodes[++i];
                     if (inNode.tagName == 't') {
                         val += inNode.textContent;
@@ -73,8 +75,11 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                     }
                     val += '</a></sup>';
                 } else {
-                    val += '<sup><a href="#note-' + inNode.getAttribute('w:id') + '">'
-                        + inNode.getAttribute('w:id') + '</a></sup>';
+                    // Here footnoteId is an object reference so we can sequentially number
+                    // the non-customMark footnotes.
+                    val += '<sup><a class="fn-reference" href="#note-' + fnId + '">'
+                        + footnoteId.value + '</a></sup>';
+                    footnoteId.value += 1;
                 }
             }
         }
@@ -112,7 +117,7 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             return output;
         });
         var mainDocument = input.files['word/document.xml'].async("string").then(function (data) {
-            var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val;
+            var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val, footnoteId = {value : 1};
             inputDoc = toXML(data).getElementsByTagName('body')[0];
             output = newHTMLnode('DIV');
             for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
@@ -125,12 +130,11 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                         if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
                     }
                     if (inNodeChild.nodeName === 'r') {
-                        tempStr += processRun(inNodeChild, outNode, null);
+                        tempStr += processRun(inNodeChild, footnoteId);
                     }
                     outNode.innerHTML = tempStr;
                 }
             }
-            output = output.childNodes;
             return output;
         });
         var footnotes = input.files['word/footnotes.xml'].async("string").then(function (data) {
@@ -138,23 +142,25 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             inputDoc = toXML(data);
             output = newHTMLnode('DIV');
             for (h = 0; fnNode = inputDoc.childNodes[h]; h++) {
-                for (i = 0; inNode = fnNode.childNodes[i]; i++) {
-                    j = inNode.childNodes.length;
-                    outNode = output.appendChild(newHTMLnode('P'));
-                    tempStr = '';
-                    for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
-                        if (inNodeChild.nodeName === 'pPr') {
-                            if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) { outNode.style.textAlign = styleAttrNode.getAttribute('w:val'); }
-                            if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
+                if (!fnNode.getAttribute('w:type')) {
+                    for (i = 0; inNode = fnNode.childNodes[i]; i++) {
+                        j = inNode.childNodes.length;
+                        outNode = output.appendChild(newHTMLnode('P'));
+                        tempStr = '';
+                        for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
+                            if (inNodeChild.nodeName === 'pPr') {
+                                if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) { outNode.style.textAlign = styleAttrNode.getAttribute('w:val'); }
+                                if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
+                            }
+                            if (inNodeChild.nodeName === 'r') {
+                                tempStr += processRun(inNodeChild, fnNode.getAttribute('w:id'));
+                            }
+                            outNode.innerHTML = tempStr;
                         }
-                        if (inNodeChild.nodeName === 'r') {
-                            tempStr += processRun(inNodeChild, outNode, fnNode);
-                        }
-                        outNode.innerHTML = tempStr;
+                        outNode.id = 'note-' + fnNode.getAttribute('w:id');
                     }
                 }
             }
-            output = output.childNodes;
             return output;
         });
         return Promise.all([styles, mainDocument, footnotes]).then(function (results) {
@@ -163,6 +169,20 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                mainDocument: results[1],
                footnotes: results[2]
             };
+
+            // Fixup footnotes
+            var references = output.mainDocument.getElementsByClassName("fn-reference");
+            var refNode, footnote;
+            for (var i = 0; (refNode = references[i]) && (footnote = output.footnotes.childNodes[i]); i++) {
+                var noteId = refNode.getAttribute('href').substr(1);
+                if (noteId == footnote.id) {
+                    var ref;
+                    if (ref = footnote.getElementsByClassName('fn-ref')[0]) {
+                        ref.textContent = refNode.textContent;
+                    }
+                }
+            }
+
             return output;
         });
     }
