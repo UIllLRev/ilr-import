@@ -17,7 +17,9 @@ function handleFileSelect(evt) {
                 document.getElementById("content").value += q.outerHTML; 
             }
         }); 
-        r.footnotes.childNodes.forEach(function (q) { document.getElementById("content").value += q.outerHTML; });
+        if (r.footnotes) {
+            r.footnotes.childNodes.forEach(function (q) { document.getElementById("content").value += q.outerHTML; });
+        }
     });
 }
 document.getElementById("import_docx_file").addEventListener("change", handleFileSelect, false);

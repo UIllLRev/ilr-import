@@ -88,7 +88,29 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
     }
     function toXML(str) { return new DOMParser().parseFromString(str.replace(/<[a-zA-Z]*?:/g, '<').replace(/<\/[a-zA-Z]*?:/g, '</'), 'text/xml').firstChild; }
     if (input.files) { // input is file object
-        var styles = input.files['word/styles.xml'].async("string").then(function (data) {
+        var promises = [];
+        promises.push(input.files['word/document.xml'].async("string").then(function (data) {
+            var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val, footnoteId = {value : 1};
+            inputDoc = toXML(data).getElementsByTagName('body')[0];
+            output = newHTMLnode('DIV');
+            for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
+                j = inNode.childNodes.length;
+                outNode = output.appendChild(newHTMLnode('P'));
+                tempStr = '';
+                for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
+                    if (inNodeChild.nodeName === 'pPr') {
+                        if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) { outNode.style.textAlign = styleAttrNode.getAttribute('w:val'); }
+                        if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
+                    }
+                    if (inNodeChild.nodeName === 'r') {
+                        tempStr += processRun(inNodeChild, footnoteId);
+                    }
+                    outNode.innerHTML = tempStr;
+                }
+            }
+            return output;
+        }));
+        promises.push(input.files['word/styles.xml'].async("string").then(function (data) {
             var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val;
             inputDoc = toXML(data);
             output = newHTMLnode('STYLE');
@@ -113,58 +135,39 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                 }
             }
             return output;
-        });
-        var mainDocument = input.files['word/document.xml'].async("string").then(function (data) {
-            var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val, footnoteId = {value : 1};
-            inputDoc = toXML(data).getElementsByTagName('body')[0];
-            output = newHTMLnode('DIV');
-            for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
-                j = inNode.childNodes.length;
-                outNode = output.appendChild(newHTMLnode('P'));
-                tempStr = '';
-                for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
-                    if (inNodeChild.nodeName === 'pPr') {
-                        if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) { outNode.style.textAlign = styleAttrNode.getAttribute('w:val'); }
-                        if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
-                    }
-                    if (inNodeChild.nodeName === 'r') {
-                        tempStr += processRun(inNodeChild, footnoteId);
-                    }
-                    outNode.innerHTML = tempStr;
-                }
-            }
-            return output;
-        });
-        var footnotes = input.files['word/footnotes.xml'].async("string").then(function (data) {
-            var output, inputDoc, h, i, j, k, id, doc, fnNode, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val;
-            inputDoc = toXML(data);
-            output = newHTMLnode('DIV');
-            for (h = 0; fnNode = inputDoc.childNodes[h]; h++) {
-                if (!fnNode.getAttribute('w:type')) {
-                    for (i = 0; inNode = fnNode.childNodes[i]; i++) {
-                        j = inNode.childNodes.length;
-                        outNode = output.appendChild(newHTMLnode('P'));
-                        tempStr = '';
-                        for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
-                            if (inNodeChild.nodeName === 'pPr') {
-                                if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) { outNode.style.textAlign = styleAttrNode.getAttribute('w:val'); }
-                                if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
+        }));
+        if ('word/footnotes.xml' in input.files) {
+            promises.push(input.files['word/footnotes.xml'].async("string").then(function (data) {
+                var output, inputDoc, h, i, j, k, id, doc, fnNode, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempStr, tempNode, val;
+                inputDoc = toXML(data);
+                output = newHTMLnode('DIV');
+                for (h = 0; fnNode = inputDoc.childNodes[h]; h++) {
+                    if (!fnNode.getAttribute('w:type')) {
+                        for (i = 0; inNode = fnNode.childNodes[i]; i++) {
+                            j = inNode.childNodes.length;
+                            outNode = output.appendChild(newHTMLnode('P'));
+                            tempStr = '';
+                            for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
+                                if (inNodeChild.nodeName === 'pPr') {
+                                    if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) { outNode.style.textAlign = styleAttrNode.getAttribute('w:val'); }
+                                    if (styleAttrNode = inNodeChild.getElementsByTagName('pStyle')[0]) { outNode.className = 'pt-' + styleAttrNode.getAttribute('w:val'); }
+                                }
+                                if (inNodeChild.nodeName === 'r') {
+                                    tempStr += processRun(inNodeChild, fnNode.getAttribute('w:id'));
+                                }
+                                outNode.innerHTML = tempStr;
                             }
-                            if (inNodeChild.nodeName === 'r') {
-                                tempStr += processRun(inNodeChild, fnNode.getAttribute('w:id'));
-                            }
-                            outNode.innerHTML = tempStr;
+                            outNode.id = 'note-' + fnNode.getAttribute('w:id');
                         }
-                        outNode.id = 'note-' + fnNode.getAttribute('w:id');
                     }
                 }
-            }
-            return output;
-        });
-        return Promise.all([styles, mainDocument, footnotes]).then(function (results) {
+                return output;
+            }));
+        }
+        return Promise.all(promises).then(function (results) {
             var output = {
-               styles: results[0],
-               mainDocument: results[1],
+               mainDocument: results[0],
+               styles: results[1],
                footnotes: results[2]
             };
 
