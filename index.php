@@ -32,16 +32,21 @@ function ilr_import_register_metabox() {
 }
 
 function ilr_import_new_print_issue() {
-    if ($_POST) {
-        wp_insert_category(0, 'category', "volume-{$year}-issue-{$issue}", '', "Vol. {$year} No. {$issue}", 36);
+    if (isset($_POST['year']) && isset($_POST['issue'])) {
+        wp_insert_category(array(
+            'cat_name' => "Vol. {$_POST['year']} No. {$_POST['issue']}",
+            'category_nicename' => "volume-{$_POST['year']}-issue-{$_POST['issue']}",
+            'category_parent' => 36
+        ));
     } else {
         echo '<div class="wrap">';
         echo '<h1>New Print Issue</h1>';
         echo '<form enctype="multipart/form-data" method="POST">';
         echo '<label for="year">Year</label>';
-        echo '<input type="text" id="year"/>';
+        echo '<input type="text" name="year" id="year"/>';
         echo '<label for="issue">Issue</label>';
-        echo '<input type="text" id="issue"/>';
+        echo '<input type="text" name="issue" id="issue"/>';
+        echo '<input type="submit" value="Add"/>';
         echo '</form>';
         echo '</div>';
     }
@@ -53,20 +58,27 @@ function ilr_import_add_submenu() {
 }
 
 function ilr_import_current_issue() {
-$cats = get_terms(
-    array(
-        'taxonomy' => 'category',
-        'orderby' => 'name',
-        'order' => 'DESC',
-        'hide_empty' => true,
-        'parent' => 36,
-        'number' => 1
-    ));
+    $cats = get_terms(
+        array(
+            'taxonomy' => 'category',
+            'orderby' => 'name',
+            'order' => 'DESC',
+            'hide_empty' => true,
+            'parent' => 36,
+            'number' => 1
+        ));
 
-add_rewrite_rule('^current-issue/?$', 'index.php?cat=' . $cats[0]->term_id, 'top');
+    add_rewrite_rule('^current-issue/?$', 'index.php?cat=' . $cats[0]->term_id, 'top');
+}
+
+function ilr_import_rewrite_activation()
+{
+    ilr_import_current_issue();
+    flush_rewrite_rules();
 }
 
 add_action('add_meta_boxes', 'ilr_import_register_metabox');
 add_action('admin_menu', 'ilr_import_add_submenu');
 add_action('init', 'ilr_import_current_issue');
+register_activation_hook(__FILE__, 'ilr_import_rewrite_activation');
 ?>
