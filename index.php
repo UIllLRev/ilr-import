@@ -57,28 +57,6 @@ function ilr_import_add_submenu() {
         'ilr_import_new_print_issue');
 }
 
-function ilr_import_current_issue() {
-    $cats = get_terms(
-        array(
-            'taxonomy' => 'category',
-            'orderby' => 'name',
-            'order' => 'DESC',
-            'hide_empty' => true,
-            'parent' => 36,
-            'number' => 1
-        ));
-
-    add_rewrite_rule('^current-issue/?$', 'index.php?cat=' . $cats[0]->term_id, 'top');
-}
-
-function ilr_import_rewrite_activation()
-{
-    ilr_import_current_issue();
-    flush_rewrite_rules();
-}
-
 add_action('add_meta_boxes', 'ilr_import_register_metabox');
 add_action('admin_menu', 'ilr_import_add_submenu');
-add_action('init', 'ilr_import_current_issue');
-register_activation_hook(__FILE__, 'ilr_import_rewrite_activation');
 ?>
