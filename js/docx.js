@@ -103,7 +103,7 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             var anchor = inNode.getAttribute('w:anchor');
             outNode = outNode.appendChild(newHTMLnode('A'));
             if (id) {
-                outNode.id = id;
+                outNode.href = state.hyperlinks[id];
             } else if (anchor) {
                 outNode.href = "#" + anchor;
             }
@@ -150,35 +150,25 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                 processRow(inNode, state, output);
         }
     }
-    function toXML(str) { return new DOMParser().parseFromString(str.replace(/<[a-zA-Z]*?:/g, '<').replace(/<\/[a-zA-Z]*?:/g, '</'), 'text/xml').firstChild; }
+
+    function toXML(str) {
+      return new DOMParser().parseFromString(
+                                             str.replace(/<[a-zA-Z]*?:/g, '<').replace(/<\/[a-zA-Z]*?:/g, '</'),
+                                             'text/xml'
+      ).firstChild;
+    }
+
     if (input.files) { // input is file object
         var promises = [];
         promises.push(input.files['word/_rels/document.xml.rels'].async("string").then(function (data) {
-            var output, inputDoc, i, j, k, inNode, outNode;
+            var output = {"hyperlinks": {}}, inputDoc, i, inNode;
             inputDoc = toXML(data);
-            output = newHTMLnode('DIV');
             for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
                 if (inNode.getAttribute('Type') === "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink") {
-                    outNode = output.appendChild(newHTMLnode('A'));
-                    outNode.id = inNode.getAttribute('Id');
-                    outNode.href = inNode.getAttribute('Target');
+                    output.hyperlinks[inNode.getAttribute('Id')] = inNode.getAttribute('Target');
                 }
             }
 
-            return output;
-        }));
-        promises.push(input.files['word/document.xml'].async("string").then(function (data) {
-            var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempNode, val, state = {"footnoteId": {"value": 1}, "listLevel": -1};
-            inputDoc = toXML(data).getElementsByTagName('body')[0];
-            output = newHTMLnode('DIV');
-            for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
-                if (inNode.nodeName == 'p') {
-                    processPara(inNode, state, output);
-                } else if (inNode.nodeName == 'tbl') {
-                    outNode = output.appendChild(newHTMLnode('TABLE'));
-                    processTable(inNode, state, outNode);
-                }
-            }
             return output;
         }));
         promises.push(input.files['word/styles.xml'].async("string").then(function (data) {
@@ -189,7 +179,6 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                 if (inNode.nodeName === 'style' /*&& inNode.getAttribute('w:customStyle') == "1"*/) {
                     output.appendChild(document.createTextNode(".pt-" + inNode.getAttribute('w:styleId') + '{'));
                     for (j = 0; inNodeChild = inNode.childNodes[j]; j++) {
-                        console.log(inNodeChild);
                         if (inNodeChild.nodeName === 'pPr') {
                             if (styleAttrNode = inNodeChild.getElementsByTagName('jc')[0]) {
                                 output.appendChild(document.createTextNode('text-align: ' + styleAttrNode.getAttribute('w:val') + ';'));
@@ -263,39 +252,44 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             }));
         }
         return Promise.all(promises).then(function (results) {
-            var output = {
-                hyperlinks: results[0],
-                mainDocument: results[1],
-                styles: results[2],
-                footnotes: results[3]
+            var ret = {
+                docRels: results[0],
+                styles: results[1],
+                footnotes: results[2]
             };
-
-            // Fixup footnotes
-            var references = output.mainDocument.getElementsByClassName("fn-reference");
-            var refNode, footnote;
-            for (var i = 0; refNode = references[i]; i++) {
-                for (var j = i; footnote = output.footnotes.childNodes[j]; j++) {
-                    var noteId = refNode.getAttribute('href').substr(1);
-                    if (noteId == footnote.id) {
-                        var ref;
-                        if (ref = footnote.getElementsByClassName('fn-ref')[0]) {
-                            ref.textContent = refNode.textContent;
-                        }
-                        break;
+            return input.files['word/document.xml'].async("string").then(function (data) {
+                var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempNode, val, state = {"footnoteId": {"value": 1}, "listLevel": -1, "hyperlinks": ret.docRels.hyperlinks};
+                inputDoc = toXML(data).getElementsByTagName('body')[0];
+                output = newHTMLnode('DIV');
+                for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
+                    if (inNode.nodeName == 'p') {
+                        processPara(inNode, state, output);
+                    } else if (inNode.nodeName == 'tbl') {
+                        outNode = output.appendChild(newHTMLnode('TABLE'));
+                        processTable(inNode, state, outNode);
                     }
                 }
-            }
+                return output;
+            }).then(function (output) {
+                ret.mainDocument = output;
 
-            // Fixup hyperlinks
-            var hyperlinks = output.hyperlinks.getElementsByTagName('A');;
-            for (var i = 0; refNode = hyperlinks[i]; i++) {
-                var link = output.mainDocument.querySelector('#' + refNode.id);
-                if (link) {
-                    link.href = refNode.href;
+                // Fixup footnotes
+                var references = ret.mainDocument.getElementsByClassName("fn-reference");
+                var refNode, footnote;
+                for (var i = 0; refNode = references[i]; i++) {
+                    for (var j = i; footnote = ret.footnotes.childNodes[j]; j++) {
+                        var noteId = refNode.getAttribute('href').substr(1);
+                        if (noteId == footnote.id) {
+                            var ref;
+                            if (ref = footnote.getElementsByClassName('fn-ref')[0]) {
+                                ref.textContent = refNode.textContent;
+                            }
+                            break;
+                        }
+                    }
                 }
-            }
-
-            return output;
+                return ret;
+            });
         });
     }
 }
