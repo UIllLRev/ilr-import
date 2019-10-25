@@ -133,6 +133,7 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             if (!list) {
                 if (state.numbering.abstracts[state.numbering.nums[num].abstractId][lvl].numFmt == 'disc') {
                     list = output.appendChild(newHTMLnode('UL'));
+                    list.style['list-style-type'] = 'disc';
                 } else {
                     list = output.appendChild(newHTMLnode('OL'));
                     list.style['list-style-type'] = state.numbering.abstracts[state.numbering.nums[num].abstractId][lvl].numFmt;
@@ -335,7 +336,6 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                 var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempNode, val, state = {"footnoteId": {"value": 1}, "numbering": ret.numbering, "styleNums": ret.styles.styleNums, "hyperlinks": ret.docRels.hyperlinks};
                 inputDoc = toXML(data).getElementsByTagName('body')[0];
                 output = newHTMLnode('DIV');
-                console.log(inputDoc);
                 for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
                     if (inNode.nodeName == 'p') {
                         processPara(inNode, state, output);
