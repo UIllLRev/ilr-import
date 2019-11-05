@@ -121,14 +121,16 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
     }
     function processPara(node, state, output) {
         var numNode, outNode = output, inNode, j, styleAttrNode, lvl, num;
+        if (inNode = node.getElementsByTagName('pStyle')[0]) {
+            lvl = state.styleLvls[inNode.getAttribute('w:val')];
+            num = state.styleNums[inNode.getAttribute('w:val')];
+        }
         if (numNode = node.getElementsByTagName('numPr')[0]) {
             lvl = numNode.getElementsByTagName('ilvl')[0].getAttribute('w:val');
             num = numNode.getElementsByTagName('numId')[0].getAttribute('w:val');
-        } else if (inNode = node.getElementsByTagName('pStyle')[0]) {
-            lvl = "0";
-            num = state.styleNums[inNode.getAttribute('w:val')];
         }
-        if (lvl && num) {
+        if (num) {
+            if (!lvl) lvl = "0";
             var list = output.querySelector('#list-' + num + '-' + lvl);
             if (!list) {
                 if (state.numbering.abstracts[state.numbering.nums[num].abstractId][lvl].numFmt == 'disc') {
@@ -198,7 +200,7 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
             return {"part": "docRels", "content": output};
         }));
         promises.push(input.files['word/styles.xml'].async("string").then(function (data) {
-            var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempNode, val, styleNums = {};
+            var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempNode, val, styleNums = {}, styleLvls = {};
             inputDoc = toXML(data);
             output = newHTMLnode('STYLE');
             for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
@@ -224,6 +226,9 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                             }
                             if (styleAttrNode = inNodeChild.getElementsByTagName('numId')[0]) {
                                 styleNums[inNode.getAttribute('w:styleId')] = styleAttrNode.getAttribute('w:val');
+                            }
+                            if (styleAttrNode = inNodeChild.getElementsByTagName('ilvl')[0]) {
+                                styleLvls[inNode.getAttribute('w:styleId')] = styleAttrNode.getAttribute('w:val');
                             }
                         }
                         if (inNodeChild.nodeName === 'rPr') {
@@ -251,7 +256,7 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                     output.appendChild(document.createTextNode("}\r\n"));
                 }
             }
-            output = {"stylesheet" : output, "styleNums": styleNums};
+            output = {"stylesheet" : output, "styleNums": styleNums, "styleLvls": styleLvls};
             return {"part": "styles", "content": output};
         }));
         if ('word/numbering.xml' in input.files) {
@@ -333,7 +338,7 @@ function convertContent(input) { 'use strict'; // Convert HTML to Wordprocessing
                 ret[d.part] = d.content;
             });
             return input.files['word/document.xml'].async("string").then(function (data) {
-                var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempNode, val, state = {"footnoteId": {"value": 1}, "numbering": ret.numbering, "styleNums": ret.styles.styleNums, "hyperlinks": ret.docRels.hyperlinks};
+                var output, inputDoc, i, j, k, id, doc, inNode, inNodeChild, outNode, outNodeChild, styleAttrNode, footnoteNode, pCount = 0, tempNode, val, state = {"footnoteId": {"value": 1}, "numbering": ret.numbering, "styleNums": ret.styles.styleNums, "styleLvls": ret.styles.styleLvls, "hyperlinks": ret.docRels.hyperlinks};
                 inputDoc = toXML(data).getElementsByTagName('body')[0];
                 output = newHTMLnode('DIV');
                 for (i = 0; inNode = inputDoc.childNodes[i]; i++) {
