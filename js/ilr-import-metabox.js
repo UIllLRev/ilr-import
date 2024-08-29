@@ -9,7 +9,11 @@ function handleFileSelect(evt) {
                 title.value = q.innerHTML;
                 title.blur();
             } else if (q.className == 'pt-AuthorName1-Articles') {
-                document.getElementById("acf-field-ilr_author").value = q.textContent;
+              try {
+                document.querySelectorAll("[data-name='ilr_author'] input")[0].value = q.textContent;
+              } catch (e) {
+                // Oh well
+              }
             } else if (q.className == 'pt-Abstract') {
                 document.getElementById("excerpt").value += q.outerHTML;
                 document.getElementById("content").value += q.outerHTML; 

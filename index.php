@@ -3,7 +3,7 @@
 Plugin Name: ILR Import
 Plugin URI:  https://illlinoislawreview.org/plugins/ilr-import
 Description: Import from Word files
-Version:     20161104
+Version:     20240829
 Author:      Matt Loar <matt@loar.name>
 Author URI:  https://github.com/mloar
 License:     BSD
