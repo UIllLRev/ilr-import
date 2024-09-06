@@ -3,7 +3,7 @@
 Plugin Name: ILR Import
 Plugin URI:  https://illlinoislawreview.org/plugins/ilr-import
 Description: Import from Word files
-Version:     20240829
+Version:     20240906
 Author:      Matt Loar <matt@loar.name>
 Author URI:  https://github.com/mloar
 License:     BSD
@@ -24,6 +24,7 @@ function ilr_import_docx_metabox() {
 
     echo '<label class="screen-reader-text" for="import_docx_file">Import DOCX File</label>';
     echo '<input type="file" id="import_docx_file">';
+    echo '<div class="spinner"></div>';
     echo '<p>Selecting a DOCX file will replace the content of this post with the contents of the DOCX file converted to HTML.</p>';
 }
 
